@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Meeting Booking Portal</title>
+</head>
+<body>
+  <h1>Book a Meeting Slot</h1>
+  <div id="time-slots"></div>
+
+  <h2>Current Bookings</h2>
+  <div id="bookings"></div>
+
+  <div id="booking-popup" style="display: none;">
+    <h2>Book Slot</h2>
+    <form id="booking-form">
+      <input type="text" id="name" name="name" placeholder="Name" required>
+      <input type="email" id="email" name="email" placeholder="Email" required>
+      <input type="hidden" id="slot-id" name="slotId">
+      <button type="submit">Submit</button>
+    </form>
+  </div>
+
+  <div id="confirmation-popup" style="display: none;">
+    <p id="confirmation-message"></p>
+    <button id="cancel-button">Cancel Booking</button>
+  </div>
+
+  <script>
+    let currentBookingId = null;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      fetch('/api/timeslots')
+        .then(response => response.json())
+        .then(slots => {
+          const container = document.getElementById('time-slots');
+          container.innerHTML = ''; // Clear previous content
+          slots.forEach(slot => {
+            const button = document.createElement('button');
+            button.textContent = `${slot.timestamp} (${slot.slots_available} slots available)`;
+            button.onclick = () => openBookingPopup(slot.id);
+            container.appendChild(button);
+          });
+        });
+
+      fetch('/api/bookings')
+        .then(response => response.json())
+        .then(bookings => {
+          const container = document.getElementById('bookings');
+          container.innerHTML = ''; // Clear previous content
+          bookings.forEach(booking => {
+            const div = document.createElement('div');
+            div.textContent = `Name: ${booking.name}, Email: ${booking.email}, Slot ID: ${booking.slot_id}`;
+            container.appendChild(div);
+          });
+        });
+
+      document.getElementById('booking-form').addEventListener('submit', (event) => {
+        event.preventDefault();
+        const formData = new FormData(event.target);
+        fetch('/api/book', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(Object.fromEntries(formData))
+        })
+        .then(response => response.json())
+        .then(data => {
+          document.getElementById('booking-popup').style.display = 'none';
+          document.getElementById('confirmation-message').textContent = data.message;
+          document.getElementById('confirmation-popup').style.display = 'block';
+          currentBookingId = data.bookingId; // Store the booking ID
+
+          // Refresh time slots and bookings
+          loadTimeSlots();
+          loadBookings();
+        });
+      });
+
+      document.getElementById('cancel-button').addEventListener('click', () => {
+        fetch('/api/cancel', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bookingId: currentBookingId })
+        })
+        .then(response => response.json())
+        .then(data => {
+          document.getElementById('confirmation-popup').style.display = 'none';
+          alert(data.message);
+          currentBookingId = null; // Reset the booking ID
+
+          // Refresh time slots and bookings
+          loadTimeSlots();
+          loadBookings();
+        });
+      });
+    });
+
+    function openBookingPopup(slotId) {
+      document.getElementById('slot-id').value = slotId;
+      document.getElementById('booking-popup').style.display = 'block';
+    }
+
+    function loadTimeSlots() {
+      fetch('/api/timeslots')
+        .then(response => response.json())
+        .then(slots => {
+          const container = document.getElementById('time-slots');
+          container.innerHTML = ''; // Clear previous content
+          slots.forEach(slot => {
+            const button = document.createElement('button');
+            button.textContent = `${slot.timestamp} (${slot.slots_available} slots available)`;
+            button.onclick = () => openBookingPopup(slot.id);
+            container.appendChild(button);
+          });
+        });
+    }
+
+    function loadBookings() {
+      fetch('/api/bookings')
+        .then(response => response.json())
+        .then(bookings => {
+          const container = document.getElementById('bookings');
+          container.innerHTML = ''; // Clear previous content
+          bookings.forEach(booking => {
+            const div = document.createElement('div');
+            div.textContent = `Name: ${booking.name}, Email: ${booking.email}, Slot ID: ${booking.slot_id}`;
+            container.appendChild(div);
+          });
+        });
+    }
+  </script>
+</body>
+</html>
